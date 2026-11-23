@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Abismo: Uma expedição de scrollytelling interativa da superfície rasa do oceano até a profundeza extrema da Fossa das Marianas (~11.000 m)." />
+  <title>Abismo — Descida à Fossa das Marianas</title>
+
+  <!-- Favicon temático em SVG inline (Evita 404 de favicon.ico) -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='48' fill='%23050B1A'/%3E%3Ccircle cx='50' cy='50' r='22' fill='%235CF2D6'/%3E%3C/svg%3E" />
+
+  <!-- Google Fonts: Fraunces (títulos com opsz e wght variáveis) + Figtree (textos legíveis e dinâmicos) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Fraunces:ital,opsz,wght@0,9..144,300..800;1,9..144,400&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+
+  <!-- Controles Fixos Superiores: Áudio Ambiente e Acessibilidade -->
+  <header class="top-controls" role="banner">
+    <button id="btn-sound" class="btn-icon" aria-label="Ativar som ambiente das profundezas" aria-pressed="false">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+      </svg>
+      <span class="btn-label">Som do oceano</span>
+      <span class="sound-waves" aria-hidden="true">
+        <span class="sound-bar"></span>
+        <span class="sound-bar"></span>
+        <span class="sound-bar"></span>
+      </span>
+    </button>
+  </header>
+
+  <!-- Botão Flutuante: Subir à Superfície (Surge após 1.000m) -->
+  <button id="btn-surface" aria-label="Retornar à superfície" title="Subir à superfície">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <line x1="12" y1="19" x2="12" y2="5"></line>
+      <polyline points="5 12 12 5 19 12"></polyline>
+    </svg>
+    <span>Subir à superfície</span>
+  </button>
+
+  <!-- Profundímetro Fixo na Lateral Direita (Atualizado via GSAP ScrollTrigger) -->
+  <aside class="depth-gauge" aria-label="Profundímetro e sensores de mergulho">
+    <div class="gauge-ruler" aria-hidden="true">
+      <div id="gauge-track" class="gauge-track"></div>
+      <div id="gauge-marker" class="gauge-marker"></div>
+    </div>
+    <div class="gauge-readings">
+      <div class="reading-item primary">
+        <span class="reading-label">Profundidade</span>
+        <span class="reading-val"><span id="val-depth">0</span><span class="gauge-unit">m</span></span>
+      </div>
+      <div class="reading-item">
+        <span class="reading-label">Pressão hidrostática</span>
+        <span class="reading-val"><span id="val-pressure">1.0</span><span class="gauge-unit">atm</span></span>
+      </div>
+      <div class="reading-item">
+        <span class="reading-label">Temperatura da água</span>
+        <span class="reading-val"><span id="val-temp">26.0</span><span class="gauge-unit">°C</span></span>
+      </div>
+      <div class="reading-item">
+        <span class="reading-label">Luz solar restante</span>
+        <span class="reading-val"><span id="val-light">100</span><span class="gauge-unit">%</span></span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Lanterna do Mergulhador: Máscara radial que segue o cursor nas zonas escuras -->
+  <div id="diver-torch-mask" aria-hidden="true"></div>
+  <div class="torch-glow" aria-hidden="true"></div>
+
+  <!-- Coluna D'Água Contínua -->
+  <main id="ocean-column">
+
+    <!-- Raios Solares (God Rays) na Superfície -->
+    <div class="god-rays-container" aria-hidden="true">
+      <div class="god-ray"></div>
+      <div class="god-ray"></div>
+      <div class="god-ray"></div>
+      <div class="god-ray"></div>
+      <div class="god-ray"></div>
+    </div>
+
+    <!-- Ondas Estilizadas na Superfície -->
+    <div class="surface-waves" aria-hidden="true">
+      <svg viewBox="0 0 1440 90" fill="none" preserveAspectRatio="none" style="width: 100%; height: 100%;">
+        <path d="M0,45 C320,80 480,10 720,45 C960,80 1120,15 1440,45 L1440,0 L0,0 Z" fill="rgba(255,255,255,0.3)"></path>
+        <path d="M0,55 C240,20 480,75 720,50 C960,25 1200,70 1440,55 L1440,0 L0,0 Z" fill="rgba(255,255,255,0.18)"></path>
+      </svg>
+    </div>
+
+    <!-- Canvas para Cardume com Algoritmo de Boids (Desvia do Cursor) -->
+    <canvas id="boids-canvas" aria-hidden="true"></canvas>
+
+    <!-- Canvas para Neve Marinha e Partículas em Suspensão -->
+    <canvas id="particles-canvas" aria-hidden="true"></canvas>
+
+    <!-- ====================================================================
+         ZONA 1: Superfície & Epipelágica (0 – 200 m)
+         ==================================================================== -->
+    <section id="zona-superficie" class="zone-section" aria-label="Zona Epipelágica, de 0 a 200 metros">
+      <div class="zone-container">
+        
+        <div class="hero-header">
+          <span class="hero-tag">0 a 200 metros · Zona da Luz Solar</span>
+          <h1 class="hero-title">Quanto fundo você vai</h1>
+          <p class="hero-subtitle">
+            A fina camada onde a radiação solar sustenta a fotossíntese de quase todo o oceano. Aqui a água é tépida, dinâmica e densamente povoada.
+          </p>
+          <div class="scroll-prompt" aria-hidden="true">
+            <span>Role para iniciar a descida</span>
+            <svg class="scroll-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </div>
+        </div>
+
+        <div class="zone-layout">
+          <div class="zone-narrative">
+            <span class="zone-depth-tag">Zona Epipelágica</span>
+            <h2 class="zone-title">O berço da vida marinha</h2>
+            <p class="zone-lead">
+              Apenas 5% do volume oceânico total recebe luz suficiente para a fotossíntese vegetal. Mesmo assim, esta faixa rasa abriga mais de 90% de todas as espécies marinhas catalogadas pelo ser humano.
+            </p>
+            <div class="zone-fact-box">
+              <p>
+                <strong>Dado real:</strong> A cada 10 metros que você desce nesta coluna, a pressão da água aumenta em exatamente 1 atmosfera (101,3 kPa), comprimindo bolsas de gás e tecidos elásticos.
+              </p>
+            </div>
+          </div>
+
+          <div class="zone-creature-stage">
+            <!-- Cardume Interativo em SVG -->
+            <button class="creature-interactive" data-creature="sardinella" aria-label="Abrir informações sobre o Cardume de Sardinhas">
+              <svg width="340" height="240" viewBox="0 0 340 240" fill="none">
+                <defs>
+                  <linearGradient id="fish-silver" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#E2F7F8" />
+                    <stop offset="50%" stop-color="#9ADFE0" />
+                    <stop offset="100%" stop-color="#4B9BA8" />
+                  </linearGradient>
+                </defs>
+                <!-- Peixe Principal 1 -->
+                <g class="pulse-bell" style="animation-duration: 4s;">
+                  <path d="M 60 70 C 110 50, 170 55, 210 70 C 170 85, 110 90, 60 70 Z" fill="url(#fish-silver)" />
+                  <polygon points="60,70 30,55 35,70 30,85" fill="#4B9BA8" />
+                  <path d="M 120 60 C 135 50, 155 52, 160 58" stroke="#337885" stroke-width="2" fill="none" />
+                  <circle cx="185" cy="67" r="4" fill="#0A303D" />
+                  <circle cx="186" cy="66" r="1.5" fill="#FFFFFF" />
+                  <path d="M 90 70 Q 140 73 180 70" stroke="rgba(255,255,255,0.6)" stroke-width="1.5" stroke-dasharray="3 3" />
+                </g>
+                <!-- Peixe Acompanhante 2 -->
+                <g style="transform: translate(70px, 60px) scale(0.85);">
+                  <path d="M 60 70 C 110 50, 170 55, 210 70 C 170 85, 110 90, 60 70 Z" fill="url(#fish-silver)" opacity="0.9" />
+                  <polygon points="60,70 30,55 35,70 30,85" fill="#4B9BA8" />
+                  <circle cx="185" cy="67" r="3.5" fill="#0A303D" />
+                </g>
+                <!-- Peixe Acompanhante 3 -->
+                <g style="transform: translate(-20px, 90px) scale(0.75);">
+                  <path d="M 60 70 C 110 50, 170 55, 210 70 C 170 85, 110 90, 60 70 Z" fill="url(#fish-silver)" opacity="0.8" />
+                  <polygon points="60,70 30,55 35,70 30,85" fill="#4B9BA8" />
+                  <circle cx="185" cy="67" r="3" fill="#0A303D" />
+                </g>
+              </svg>
+              <span class="creature-hint">Clique para examinar</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         ZONA 2: Mesopelágica (200 – 1.000 m)
+         ==================================================================== -->
+    <section id="zona-mesopelagica" class="zone-section" aria-label="Zona Mesopelágica, de 200 a 1.000 metros">
+      <div class="zone-container">
+        <div class="zone-layout reverse">
+          
+          <div class="zone-narrative">
+            <span class="zone-depth-tag">200 a 1.000 metros · Zona do Crepúsculo</span>
+            <h2 class="zone-title">O reino da penumbra</h2>
+            <p class="zone-lead">
+              A radiação solar perde os comprimentos de onda vermelhos e amarelos, restando apenas um azul espectral fraco. Nenhuma planta prospera aqui, e os predadores se orientam por sombras e reflexos sutis.
+            </p>
+            <div class="zone-fact-box">
+              <p>
+                <strong>Maior migração do planeta:</strong> Todas as noites, bilhões de toneladas de organismos sobem desta faixa para a superfície para se alimentarem na escuridão, descendo antes do amanhecer.
+              </p>
+            </div>
+          </div>
+
+          <div class="zone-creature-stage" style="display: flex; flex-direction: column; gap: 3rem;">
+            
+            <!-- Água-viva Translúcida Pulsando -->
+            <button class="creature-interactive" data-creature="aequorea" aria-label="Abrir informações sobre a Água-viva Cristalina">
+              <svg width="260" height="260" viewBox="0 0 260 260" fill="none">
+                <defs>
+                  <radialGradient id="jelly-glow" cx="50%" cy="30%" r="60%">
+                    <stop offset="0%" stop-color="rgba(92, 242, 214, 0.75)" />
+                    <stop offset="60%" stop-color="rgba(31, 111, 139, 0.35)" />
+                    <stop offset="100%" stop-color="rgba(5, 11, 26, 0.05)" />
+                  </radialGradient>
+                </defs>
+                <g class="pulse-bell">
+                  <!-- Sino da Água-viva -->
+                  <path d="M 40 100 C 40 30, 220 30, 220 100 C 200 115, 180 105, 150 115 C 130 105, 100 115, 75 105 C 55 115, 40 105, 40 100 Z"
+                        fill="url(#jelly-glow)" stroke="#5CF2D6" stroke-width="1.8" />
+                  <!-- Canais Radiais Internos -->
+                  <path d="M 130 40 Q 130 75 80 105" stroke="rgba(92, 242, 214, 0.6)" stroke-width="1.2" fill="none" />
+                  <path d="M 130 40 Q 130 75 130 110" stroke="rgba(92, 242, 214, 0.6)" stroke-width="1.2" fill="none" />
+                  <path d="M 130 40 Q 130 75 180 105" stroke="rgba(92, 242, 214, 0.6)" stroke-width="1.2" fill="none" />
+                </g>
+                <!-- Tentáculos Ondulantes -->
+                <g class="wave-tentacle-1">
+                  <path d="M 70 105 Q 60 160 85 210 Q 75 235 80 250" stroke="rgba(92, 242, 214, 0.85)" stroke-width="1.5" fill="none" />
+                  <path d="M 105 108 Q 120 165 95 215 Q 110 240 105 255" stroke="rgba(178, 107, 255, 0.8)" stroke-width="1.5" fill="none" />
+                </g>
+                <g class="wave-tentacle-2">
+                  <path d="M 155 108 Q 140 165 165 215 Q 150 240 155 255" stroke="rgba(178, 107, 255, 0.8)" stroke-width="1.5" fill="none" />
+                  <path d="M 190 105 Q 200 160 175 210 Q 185 235 180 250" stroke="rgba(92, 242, 214, 0.85)" stroke-width="1.5" fill="none" />
+                </g>
+              </svg>
+              <span class="creature-hint">Água-viva Cristalina</span>
+            </button>
+
+            <!-- Peixe-Lanterna Bioluminescente -->
+            <button class="creature-interactive" data-creature="myctophid" aria-label="Abrir informações sobre o Peixe-Lanterna" style="align-self: flex-end;">
+              <svg width="220" height="110" viewBox="0 0 220 110" fill="none">
+                <defs>
+                  <linearGradient id="lantern-skin" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#1B3854" />
+                    <stop offset="100%" stop-color="#071626" />
+                  </linearGradient>
+                </defs>
+                <!-- Corpo e Nadadeiras -->
+                <path d="M 30 55 C 65 30, 150 32, 195 55 C 150 78, 65 80, 30 55 Z" fill="url(#lantern-skin)" stroke="#2C5373" stroke-width="1.5" />
+                <polygon points="30,55 8,40 14,55 8,70" fill="#1B3854" />
+                <path d="M 105 33 L 125 18 L 135 34 Z" fill="#1B3854" opacity="0.8" />
+                <!-- Olho Grande Adaptado -->
+                <circle cx="170" cy="50" r="8" fill="#5CF2D6" opacity="0.3" />
+                <circle cx="170" cy="50" r="5" fill="#03101C" />
+                <circle cx="171" cy="49" r="1.5" fill="#5CF2D6" />
+                <!-- Linhas de Fotóforos Bioluminescentes (Ventral) -->
+                <g fill="#5CF2D6" style="filter: drop-shadow(0 0 4px #5CF2D6);">
+                  <circle cx="50" cy="64" r="2.2" />
+                  <circle cx="65" cy="68" r="2.2" />
+                  <circle cx="80" cy="71" r="2.2" />
+                  <circle cx="95" cy="73" r="2.2" />
+                  <circle cx="110" cy="73" r="2.2" />
+                  <circle cx="125" cy="71" r="2.2" />
+                  <circle cx="140" cy="68" r="2.2" />
+                  <circle cx="155" cy="63" r="2.2" />
+                  <!-- Fotóforo orbital -->
+                  <circle cx="162" cy="58" r="2" fill="#B26BFF" />
+                </g>
+              </svg>
+              <span class="creature-hint">Peixe-Lanterna</span>
+            </button>
+
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         ZONA 3: Batipelágica (1.000 – 4.000 m)
+         ==================================================================== -->
+    <section id="zona-batipelagica" class="zone-section" aria-label="Zona Batipelágica, de 1.000 a 4.000 metros">
+      <div class="zone-container">
+        <div class="zone-layout">
+          
+          <div class="zone-narrative">
+            <span class="zone-depth-tag">1.000 a 4.000 metros · Meia-Noite Eterna</span>
+            <h2 class="zone-title">A escuridão absoluta</h2>
+            <p class="zone-lead">
+              Abaixo de 1.000 metros, nenhum fóton solar consegue penetrar. A temperatura despenca para 4 °C e a água é um manto negro cortado exclusivamente por centelhas de luz química gerada pelos próprios predadores.
+            </p>
+            <div class="zone-fact-box">
+              <p>
+                <strong>Neve Marinha:</strong> Pequenas partículas de matéria orgânica e carcaças microscópicas caem sem parar como flocos de neve, nutrindo toda a cadeia trófica desprovida de sol.
+              </p>
+            </div>
+          </div>
+
+          <div class="zone-creature-stage" style="display: flex; flex-direction: column; gap: 4rem;">
+            
+            <!-- Peixe-Pescador Abissal -->
+            <button class="creature-interactive" data-creature="anglerfish" aria-label="Abrir informações sobre o Peixe-Pescador Abissal">
+              <svg width="280" height="220" viewBox="0 0 280 220" fill="none">
+                <!-- Haste Luminosa (Illicium) -->
+                <path d="M 195 90 C 205 35, 140 20, 110 38" stroke="#3D566E" stroke-width="2.5" fill="none" />
+                <!-- Isca Bioluminescente (Esca) -->
+                <g class="angler-lure">
+                  <circle cx="110" cy="38" r="9" fill="#5CF2D6" />
+                  <circle cx="110" cy="38" r="16" fill="rgba(92, 242, 214, 0.35)" />
+                </g>
+                <!-- Corpo Globular Escuro -->
+                <path d="M 90 150 C 60 140, 50 110, 80 95 C 120 75, 185 80, 220 100 C 235 135, 200 185, 140 185 C 110 185, 95 165, 90 150 Z"
+                      fill="#071019" stroke="#182A3A" stroke-width="2" />
+                <!-- Nadadeira Caudal -->
+                <polygon points="80,115 45,95 50,115 45,135" fill="#0C1B2A" />
+                <!-- Boca Cavernosa com Dentes Translúcidos -->
+                <path d="M 180 120 Q 215 130 220 155 Q 185 165 170 145 Z" fill="#02060A" />
+                <!-- Dentes Afiados -->
+                <polygon points="185,122 188,135 192,124" fill="#C2EBF0" opacity="0.85" />
+                <polygon points="195,125 199,142 204,128" fill="#C2EBF0" opacity="0.85" />
+                <polygon points="206,132 210,147 214,136" fill="#C2EBF0" opacity="0.85" />
+                <polygon points="178,145 183,132 187,147" fill="#C2EBF0" opacity="0.85" />
+                <polygon points="190,150 195,135 201,152" fill="#C2EBF0" opacity="0.85" />
+                <!-- Olho Diminuto -->
+                <circle cx="195" cy="98" r="3" fill="#203E53" />
+                <circle cx="196" cy="97" r="1" fill="#5CF2D6" />
+              </svg>
+              <span class="creature-hint">Peixe-Pescador Abissal</span>
+            </button>
+
+            <!-- Lula-Vampira -->
+            <button class="creature-interactive" data-creature="vampire-squid" aria-label="Abrir informações sobre a Lula-Vampira" style="align-self: flex-start;">
+              <svg width="250" height="200" viewBox="0 0 250 200" fill="none">
+                <defs>
+                  <radialGradient id="vamp-glow" cx="40%" cy="40%" r="60%">
+                    <stop offset="0%" stop-color="#3D123D" />
+                    <stop offset="70%" stop-color="#1A061F" />
+                    <stop offset="100%" stop-color="#08020B" />
+                  </radialGradient>
+                </defs>
+                <!-- Nadadeiras Apicais (Asas) -->
+                <path d="M 60 70 C 40 50, 45 35, 70 50 Z" fill="#4A194D" />
+                <path d="M 60 110 C 40 130, 45 145, 70 130 Z" fill="#4A194D" />
+                <!-- Manto Bojudo -->
+                <path d="M 50 90 C 50 65, 110 60, 140 70 C 145 80, 145 100, 140 110 C 110 120, 50 115, 50 90 Z"
+                      fill="url(#vamp-glow)" stroke="#66226B" stroke-width="1.5" />
+                <!-- Olho Azul Hipnótico -->
+                <circle cx="130" cy="85" r="9" fill="#0F2D4A" stroke="#5CF2D6" stroke-width="1" />
+                <circle cx="131" cy="84" r="5" fill="#5CF2D6" opacity="0.7" />
+                <!-- Membrana e Tentáculos com Órgãos Luminosos -->
+                <g class="wave-tentacle-1">
+                  <path d="M 140 75 Q 185 60 225 70 Q 200 90 225 105 Q 185 115 140 105 Z" fill="#240729" stroke="#7A2D80" stroke-width="1.2" />
+                  <!-- Pontos Bioluminescentes nas Extremidades -->
+                  <circle cx="225" cy="70" r="3.5" fill="#5CF2D6" style="filter: drop-shadow(0 0 5px #5CF2D6);" />
+                  <circle cx="225" cy="105" r="3.5" fill="#5CF2D6" style="filter: drop-shadow(0 0 5px #5CF2D6);" />
+                  <circle cx="195" cy="88" r="2.5" fill="#B26BFF" style="filter: drop-shadow(0 0 4px #B26BFF);" />
+                </g>
+              </svg>
+              <span class="creature-hint">Lula-Vampira</span>
+            </button>
+
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         ZONA 4: Abissopelágica (4.000 – 6.000 m)
+         ==================================================================== -->
+    <section id="zona-abissopelagica" class="zone-section" aria-label="Zona Abissopelágica, de 4.000 a 6.000 metros">
+      <div class="zone-container">
+        
+        <div class="zone-silence">
+          <span class="zone-depth-tag">4.000 a 6.000 metros · Planície Abissal</span>
+          <h2 class="zone-title">O abismo silencioso</h2>
+          <p class="zone-lead">
+            Cobrem mais da metade do leito da Terra. Um deserto aquático de temperatura glacial, salinidade imutável e pressão superior a 400 atmosferas. Pouquíssimas criaturas habitam este vazio deliberado.
+          </p>
+
+          <div class="zone-creature-stage" style="margin: 2rem auto;">
+            <!-- Água-viva Gigante Solitária (Stygiomedusa gigantea) -->
+            <button class="creature-interactive" data-creature="stygiomedusa" aria-label="Abrir informações sobre a Água-Viva Fantasma Gigante">
+              <svg width="380" height="460" viewBox="0 0 380 460" fill="none">
+                <defs>
+                  <linearGradient id="stygio-body" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="#2D1122" />
+                    <stop offset="60%" stop-color="#190914" />
+                    <stop offset="100%" stop-color="#0B0408" />
+                  </linearGradient>
+                </defs>
+                <!-- Sino Imponente -->
+                <g class="pulse-bell" style="animation-duration: 6.5s;">
+                  <path d="M 90 90 C 90 20, 290 20, 290 90 C 270 110, 240 100, 190 105 C 140 100, 110 110, 90 90 Z"
+                        fill="url(#stygio-body)" stroke="#4A1E37" stroke-width="2" />
+                  <!-- Textura do Manto -->
+                  <path d="M 140 50 Q 190 65 240 50" stroke="rgba(178, 107, 255, 0.25)" stroke-width="1.5" fill="none" />
+                </g>
+                <!-- Braços Orais em Fita Flutuantes (Podem ter até 10m na natureza) -->
+                <g class="wave-tentacle-1">
+                  <path d="M 130 95 C 100 180, 170 260, 120 340 C 90 390, 140 430, 130 455"
+                        stroke="#331427" stroke-width="12" stroke-linecap="round" fill="none" opacity="0.85" />
+                  <path d="M 130 95 C 100 180, 170 260, 120 340 C 90 390, 140 430, 130 455"
+                        stroke="rgba(178, 107, 255, 0.25)" stroke-width="2" fill="none" />
+                </g>
+                <g class="wave-tentacle-2">
+                  <path d="M 170 100 C 190 180, 130 270, 180 350 C 210 400, 160 435, 175 458"
+                        stroke="#2B0F20" stroke-width="14" stroke-linecap="round" fill="none" opacity="0.9" />
+                </g>
+                <g class="wave-tentacle-1" style="animation-delay: -2s;">
+                  <path d="M 215 100 C 245 170, 180 250, 230 330 C 260 380, 210 425, 225 455"
+                        stroke="#331427" stroke-width="11" stroke-linecap="round" fill="none" opacity="0.85" />
+                </g>
+                <g class="wave-tentacle-2" style="animation-delay: -3.5s;">
+                  <path d="M 255 95 C 290 170, 230 260, 275 340 C 300 390, 260 430, 270 455"
+                        stroke="#200B18" stroke-width="9" stroke-linecap="round" fill="none" opacity="0.75" />
+                </g>
+              </svg>
+              <span class="creature-hint">Stygiomedusa gigantea</span>
+            </button>
+          </div>
+
+          <div class="zone-fact-box" style="max-width: 580px; text-align: left;">
+            <p>
+              <strong>Adaptação anatômica:</strong> Peixes desta profundeza perderam quase toda a estrutura óssea rígida e bexigas natatórias. Seus tecidos contêm altas concentrações de óxido de trimetilamina (TMAO), que impede que a pressão destrua as proteínas celulares.
+            </p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         ZONA 5: Hadal & Fossa das Marianas (6.000 – 11.000 m)
+         ==================================================================== -->
+    <section id="zona-hadal" class="zone-section" aria-label="Zona Hadal e Fossa das Marianas, de 6.000 a 11.000 metros">
+      <div class="zone-container">
+        
+        <div class="zone-layout">
+          <div class="zone-narrative">
+            <span class="zone-depth-tag">6.000 a 10.994 metros · Zona Hadal</span>
+            <h2 class="zone-title">Fossa das Marianas</h2>
+            <p class="zone-lead">
+              O ponto mais profundo da crosta terrestre: a depressão Challenger Deep. Sob 1.100 atmosferas de pressão implacável, fontes hidrotermais expelem minerais superaquecidos a mais de 400 °C sem evaporar.
+            </p>
+            <div class="zone-fact-box">
+              <p>
+                <strong>Quimiossíntese pura:</strong> Nestas fendas, a cadeia alimentar é sustentada inteiramente por bactérias que oxidam sulfeto de hidrogênio da crosta, prosperando totalmente desconectadas da energia solar.
+              </p>
+            </div>
+          </div>
+
+          <div class="zone-creature-stage">
+            <!-- Submersível de Exploração Científica & Fenda Hidrotermal -->
+            <button class="creature-interactive" data-creature="submersible" aria-label="Abrir detalhes sobre o Submersível Hadal">
+              <svg width="340" height="280" viewBox="0 0 340 280" fill="none">
+                <!-- Chaminés da Fenda Hidrotermal -->
+                <path d="M 30 270 L 60 190 L 85 190 L 110 270 Z" fill="#1C1310" stroke="#3D281E" stroke-width="2" />
+                <path d="M 90 270 L 125 170 L 150 170 L 175 270 Z" fill="#2B1912" stroke="#4A2F20" stroke-width="2" />
+                
+                <!-- Plumas Minerais Quentes (Fumaça Preta/Âmbar) -->
+                <ellipse class="vent-smoke" cx="72" cy="180" rx="14" ry="8" fill="rgba(255, 122, 48, 0.45)" />
+                <ellipse class="vent-smoke" cx="137" cy="160" rx="18" ry="10" fill="rgba(255, 174, 66, 0.55)" style="animation-delay: -1.8s;" />
+
+                <!-- Submersível de Titânio Flutuando -->
+                <g class="floating-sub">
+                  <!-- Feixes de Luz dos Holofotes -->
+                  <polygon points="215,95 80,240 180,270 230,120" fill="url(#sub-light-beam)" opacity="0.35" style="mix-blend-mode: screen;" />
+                  <!-- Esfera de Pressão -->
+                  <circle cx="240" cy="100" r="38" fill="#1F3647" stroke="#4B779A" stroke-width="2.5" />
+                  <!-- Vigia / Escotilha -->
+                  <circle cx="225" cy="100" r="14" fill="#0A1824" stroke="#5CF2D6" stroke-width="1.8" />
+                  <circle cx="226" cy="99" r="8" fill="#5CF2D6" opacity="0.75" />
+                  <!-- Suportes e Propulsores -->
+                  <rect x="250" y="80" width="28" height="12" rx="4" fill="#364F63" />
+                  <rect x="250" y="110" width="28" height="12" rx="4" fill="#364F63" />
+                  <circle cx="282" cy="86" r="5" fill="#5CF2D6" opacity="0.8" />
+                  <circle cx="282" cy="116" r="5" fill="#5CF2D6" opacity="0.8" />
+                  <!-- Braço Robótico Coletor -->
+                  <path d="M 220 125 L 195 155 L 180 150" stroke="#8EA4B5" stroke-width="3" stroke-linecap="round" fill="none" />
+                </g>
+
+                <defs>
+                  <linearGradient id="sub-light-beam" x1="100%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="#5CF2D6" />
+                    <stop offset="30%" stop-color="#FFFFFF" />
+                    <stop offset="100%" stop-color="transparent" />
+                  </linearGradient>
+                </defs>
+              </svg>
+              <span class="creature-hint">Submersível de Exploração</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Fundo de Fenda Hidrotermal com Brilho Térmico -->
+        <div class="hadal-landscape" aria-hidden="true">
+          <div class="vent-glow-fx"></div>
+        </div>
+
+        <!-- ==================================================================
+             CALL TO ACTION: Lista de Espera da Expedição
+             ================================================================== -->
+        <div class="cta-card">
+          <span class="cta-tag">EXPEDIÇÃO ABISMO 2027</span>
+          <h3 class="cta-title">Desça até onde ninguém mais chegou</h3>
+          <p class="cta-desc">
+            Estamos construindo a próxima geração de cápsulas tripuladas de imersão abissal profunda. Inscreva seu e-mail para acompanhar o diário de bordo e a abertura de assentos científicos.
+          </p>
+
+          <form id="waitlist-form" class="waitlist-form" novalidate>
+            <div class="form-input-wrap">
+              <input
+                type="email"
+                id="waitlist-email"
+                class="waitlist-input"
+                placeholder="seu.email@exemplo.com"
+                required
+                aria-label="Endereço de e-mail para lista de espera"
+                autocomplete="email"
+              />
+            </div>
+            <button type="submit" class="btn-cta" id="btn-submit-cta">
+              <span>Embarcar na expedição</span>
+            </button>
+          </form>
+
+          <div id="form-feedback" class="form-feedback" role="status" aria-live="polite"></div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Rodapé Semântico -->
+    <footer class="site-footer" role="contentinfo">
+      <p>Abismo — Uma experiência interativa de scrollytelling oceânico.</p>
+      <p>Profundidade máxima simulada: 10.994 metros (Challenger Deep, Fossa das Marianas).</p>
+    </footer>
+
+  </main>
+
+  <!-- ======================================================================
+       MODAL DE INFORMAÇÕES DA CRIATURA (Interação ao Clicar)
+       ====================================================================== -->
+  <div id="creature-modal-backdrop" class="creature-modal-backdrop" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="creature-modal">
+      <button id="modal-close-btn" class="modal-close-btn" aria-label="Fechar janela de detalhes">&times;</button>
+      <span id="modal-creature-depth" class="modal-depth-badge">0 – 200 m</span>
+      <h3 id="modal-creature-name" class="modal-creature-title">Nome da Criatura</h3>
+      <p id="modal-creature-scientific" class="modal-creature-scientific">Nome científico</p>
+      <p id="modal-creature-fact" class="modal-creature-fact">Fato curioso sobre a espécie e sua adaptação fisiológica.</p>
+    </div>
+  </div>
+
+  <!-- GSAP e ScrollTrigger via CDN com versões estáveis e seguras -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+
+  <!-- Lógica Principal da Aplicação -->
+  <script type="module" src="./main.js"></script>
+
+</body>
+</html>
